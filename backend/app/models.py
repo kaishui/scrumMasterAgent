@@ -53,6 +53,59 @@ class Risk(BaseModel):
     owner: str = ""
 
 
+class SentimentMetrics(BaseModel):
+    """团队情绪与士气：从站会语气识别 burnout 早期信号。"""
+
+    overall: Literal["positive", "neutral", "stressed", "negative"] = "neutral"
+    signals: list[str] = Field(default_factory=list)
+    burnout_risk: list[str] = Field(default_factory=list)
+    note: str = ""
+
+
+class SprintMetrics(BaseModel):
+    """冲刺健康：目标、速度、燃尽、可预测性、范围蔓延。"""
+
+    goal: str = ""
+    committed_points: int = 0
+    completed_points: int = 0
+    velocity_points: int = 0
+    burndown: Literal["on_track", "behind", "ahead", "unknown"] = "unknown"
+    scope_creep: list[str] = Field(default_factory=list)
+
+    @property
+    def progress_pct(self) -> int:
+        if self.committed_points <= 0:
+            return 0
+        return min(100, round(100 * self.completed_points / self.committed_points))
+
+
+class Forecast(BaseModel):
+    """冲刺结果预测：能否按期交付，以及理由。"""
+
+    on_track: bool | None = None
+    confidence: float = 0.0
+    projected_completion_pct: int | None = None
+    reasoning: str = ""
+
+
+class MeetingQuality(BaseModel):
+    """会议有效性：是否聚焦、是否偏离议程、耗时是否用在关键目标上。"""
+
+    focus_score: int | None = None
+    on_agenda: bool | None = None
+    tangents: list[str] = Field(default_factory=list)
+    note: str = ""
+
+
+class Insight(BaseModel):
+    """LLM 提炼的可行动洞察：阻塞/风险/亮点/趋势/行动。"""
+
+    kind: Literal["blocker", "risk", "win", "trend", "action"] = "trend"
+    text: str
+    severity: Literal["low", "medium", "high"] = "medium"
+    owner: str = ""
+
+
 # ---------- 报告维度 ----------
 
 
@@ -142,6 +195,16 @@ class DsuRecord(BaseModel):
     team: TeamMetrics = Field(default_factory=TeamMetrics)
     trend: TrendDelta = Field(default_factory=TrendDelta)
 
+    # —— 市面 SM 产品对齐的新维度（由 LLM 全链路产出）——
+    executive_summary: str = ""
+    sentiment: SentimentMetrics = Field(default_factory=SentimentMetrics)
+    sprint_m: SprintMetrics = Field(default_factory=SprintMetrics)
+    forecast: Forecast = Field(default_factory=Forecast)
+    meeting: MeetingQuality = Field(default_factory=MeetingQuality)
+    recurring_themes: list[str] = Field(default_factory=list)
+    coaching_notes: list[str] = Field(default_factory=list)
+    insights: list[Insight] = Field(default_factory=list)
+
     source: str = ""
     approved: bool = False
 
@@ -180,17 +243,52 @@ class DsuRecord(BaseModel):
 
     @computed_field
     @property
+    def health_breakdown(self) -> dict[str, int]:
+        """敏捷健康雷达：六个维度各 0-100，health_score 是其加权平均。"""
+        blockers = 100 - min(100, self.open_blockers * 15)
+        delivery = 100 - min(60, len(self.overdue_actions) * 12)
+        if self.sprint_m.burndown == "behind":
+            delivery -= 10
+        if self.sprint_m.scope_creep:
+            delivery -= 5
+        quality = (
+            100
+            - min(50, self.quality.bugs_open * 8)
+            - min(20, self.quality.ci_failures * 5)
+            - min(30, len(self.quality.incidents) * 15)
+        )
+        flow = 100 - min(60, len(self.flow.stale_tickets) * 10) - (20 if self.flow.wip_breached else 0)
+        team = 100 - min(40, len(self.team.overloaded) * 15) - (10 if self.team.silent else 0)
+        if self.sentiment.overall == "stressed":
+            sentiment = 60
+        elif self.sentiment.overall == "negative":
+            sentiment = 40
+        else:
+            sentiment = 100
+        out = {
+            "blockers": blockers,
+            "delivery": delivery,
+            "quality": quality,
+            "flow": flow,
+            "team": team,
+            "sentiment": sentiment,
+        }
+        return {k: max(0, min(100, v)) for k, v in out.items()}
+
+    @computed_field
+    @property
     def health_score(self) -> int:
-        """团队健康度 0-100：阻塞、逾期行动项、风险、流动停滞各扣一档。"""
-        score = 100
-        score -= min(30, self.open_blockers * 10)
-        score -= min(20, len(self.overdue_actions) * 7)
-        score -= min(20, sum(4 for r in self.risks if r.level == "high"))
-        score -= min(15, sum(2 for r in self.risks if r.level == "medium"))
-        score -= min(15, len(self.flow.stale_tickets) * 3)
-        if self.flow.wip_breached:
-            score -= 10
-        return max(0, score)
+        """团队健康度 0-100：六个维度加权平均。"""
+        weights = {
+            "blockers": 0.25,
+            "delivery": 0.20,
+            "quality": 0.15,
+            "flow": 0.15,
+            "team": 0.10,
+            "sentiment": 0.15,
+        }
+        b = self.health_breakdown
+        return round(sum(b[k] * w for k, w in weights.items()))
 
     def json_path(self, folder: str) -> str:
         return f"{folder}/raw/{self.date.isoformat()}.json"

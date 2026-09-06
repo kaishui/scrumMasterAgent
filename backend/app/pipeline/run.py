@@ -41,7 +41,9 @@ async def run_pipeline(
     day = day or today_for(pod)
 
     transcript = ingest.load_transcript(pod, day, transcript_path)
-    record = await extract.extract(pod, day, transcript)
+    transcript = await ingest.clean_transcript(pod, transcript)  # LLM ① 清洗字幕
+
+    record = await extract.extract(pod, day, transcript)  # LLM ② 结构化
 
     if use_mcp:
         try:
@@ -49,7 +51,23 @@ async def run_pipeline(
         except Exception as exc:  # MCP 挂了不该阻断出报告
             record.risks.append(Risk(level="medium", text=f"Jira/GitHub 富化失败：{exc}"))
 
-    record = trends.apply_trends(record, pod, trends.previous_record(pod, day))
+    try:
+        record = await enrich.analyze(record, pod, transcript)  # LLM ③ 洞察
+    except Exception:
+        pass
+
+    previous = trends.previous_record(pod, day)
+    record = trends.apply_trends(record, pod, previous)
+
+    try:
+        record = await trends.narrate(record, pod, previous)  # LLM ④ 趋势解读 + 预测
+    except Exception:
+        pass
+
+    try:
+        record = await render.summarize(record, pod)  # LLM ⑤ 摘要 + 教练建议
+    except Exception:
+        pass
 
     html = render.render_dsu(record, pod.name)
     local = publish.save_local(record, pod, html)

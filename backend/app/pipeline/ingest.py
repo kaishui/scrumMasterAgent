@@ -155,3 +155,24 @@ def _clean(text: str) -> str:
             continue
         lines.append(line)
     return "\n".join(lines).strip()
+
+
+async def clean_transcript(pod: Pod, transcript: str) -> str:
+    """LLM 清洗：把原始字幕合并成干净对话，保留说话人、去掉冗余。失败则原样返回。
+
+    这是「字幕 → 报告」全链路的第一道 LLM：让后续结构化建立在干净文本之上。
+    """
+    from app.llm import complete, ready
+
+    if not ready() or not transcript:
+        return transcript
+
+    system = (
+        "你是会议转录清洗器。把原始字幕整理成逐条对话，规则："
+        "1) 保留或推断说话人，格式「说话人: 内容」；"
+        "2) 去掉时间轴、序号、语气词和重复的碎句；"
+        "3) 合并同一人被打断的连续发言；"
+        "4) 不改变任何事实与用词，不新增内容。直接输出清洗后的对话文本。"
+    )
+    cleaned = await complete(system, transcript)
+    return cleaned or transcript

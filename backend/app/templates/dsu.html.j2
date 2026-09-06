@@ -86,6 +86,36 @@
     </div>
   </div>
 
+  {% if record.executive_summary %}
+  <h2>执行摘要<span class="hint">LLM 生成 · 面向干系人</span></h2>
+  <p style="background:#fff;border:1px solid #E5E3DC;border-radius:12px;padding:14px 16px">{{ record.executive_summary }}</p>
+  {% endif %}
+
+  <h2>敏捷健康雷达<span class="hint">六维度 0-100</span></h2>
+  <div class="grid2">
+    <div>
+      <div class="kv"><span>阻塞</span><b>{{ record.health_breakdown.blockers }}</b></div>
+      <div class="kv"><span>交付</span><b>{{ record.health_breakdown.delivery }}</b></div>
+      <div class="kv"><span>质量</span><b>{{ record.health_breakdown.quality }}</b></div>
+    </div>
+    <div>
+      <div class="kv"><span>流动</span><b>{{ record.health_breakdown.flow }}</b></div>
+      <div class="kv"><span>团队</span><b>{{ record.health_breakdown.team }}</b></div>
+      <div class="kv"><span>情绪</span><b>{{ record.health_breakdown.sentiment }}</b></div>
+    </div>
+  </div>
+
+  {% if record.insights %}
+  <h2>洞察<span class="hint">LLM 提炼 · 可行动</span></h2>
+  {% for i in record.insights %}
+  <div style="background:#E6F1FB;border:1px solid #85B7EB;color:#0C447C;border-radius:8px;padding:8px 12px;margin-bottom:8px">
+    {{ i.text }}
+    {% if i.owner %}<span class="pill">@{{ i.owner }}</span>{% endif %}
+    <span class="pill {{ i.severity }}">{{ i.kind }}/{{ i.severity }}</span>
+  </div>
+  {% endfor %}
+  {% endif %}
+
   <h2>趋势对比<span class="hint">相对上一期</span></h2>
   <div class="grid2">
     <div>
@@ -143,6 +173,25 @@
   </div>
   {% if record.delivery.scope_changes %}
   <p class="empty">范围变更：{{ record.delivery.scope_changes|join('；') }}</p>
+  {% endif %}
+
+  <h2>冲刺健康<span class="hint">目标 · 速度 · 燃尽 · 预测</span></h2>
+  <div class="grid2">
+    <div>
+      {% if record.sprint_m.goal %}<div class="kv"><span>冲刺目标</span><b>{{ record.sprint_m.goal }}</b></div>{% endif %}
+      <div class="kv"><span>承诺 / 完成</span><b>{{ record.sprint_m.committed_points }} / {{ record.sprint_m.completed_points }} 点</b></div>
+      <div class="kv"><span>完成进度</span><b>{{ record.sprint_m.progress_pct }}%</b></div>
+    </div>
+    <div>
+      <div class="kv"><span>近期速度</span><b>{{ record.sprint_m.velocity_points }} 点/冲刺</b></div>
+      <div class="kv"><span>燃尽状态</span><b>{% if record.sprint_m.burndown == 'on_track' %}<span class="pill low">按计划</span>{% elif record.sprint_m.burndown == 'behind' %}<span class="pill high">落后</span>{% elif record.sprint_m.burndown == 'ahead' %}<span class="pill low">超前</span>{% else %}<span class="pill">未知</span>{% endif %}</b></div>
+      {% if record.sprint_m.scope_creep %}<div class="kv"><span>范围蔓延</span><b>{{ record.sprint_m.scope_creep|join('、') }}</b></div>{% endif %}
+    </div>
+  </div>
+  {% if record.forecast.reasoning %}
+  <p style="background:#FAEEDA;border:1px solid #EF9F27;border-radius:8px;padding:8px 12px;color:#633806;margin-top:8px">
+    <b>预测：</b>{% if record.forecast.on_track is not none %}{% if record.forecast.on_track %}有望按期完成{% else %}可能延期{% endif %}（置信度 {{ (record.forecast.confidence * 100)|round }}%）{% endif %}{% if record.forecast.projected_completion_pct %} · 预计完成 {{ record.forecast.projected_completion_pct }}%{% endif %}<br>{{ record.forecast.reasoning }}
+  </p>
   {% endif %}
 
   {% if record.action_items %}
@@ -215,6 +264,25 @@
     </div>
   </div>
 
+  <h2>团队情绪与会议质量<span class="hint">从站会语气识别</span></h2>
+  <div class="grid2">
+    <div>
+      <div class="kv"><span>整体情绪</span><b>{% if record.sentiment.overall == 'positive' %}<span class="pill low">积极</span>{% elif record.sentiment.overall == 'stressed' %}<span class="pill medium">紧绷</span>{% elif record.sentiment.overall == 'negative' %}<span class="pill high">消极</span>{% else %}<span class="pill">中性</span>{% endif %}</b></div>
+      {% if record.sentiment.burnout_risk %}<div class="kv"><span>过载预警</span><b>{{ record.sentiment.burnout_risk|join('、') }}</b></div>{% endif %}
+    </div>
+    <div>
+      {% if record.meeting.focus_score is not none %}<div class="kv"><span>会议聚焦度</span><b>{{ record.meeting.focus_score }} / 100</b></div>{% endif %}
+      {% if record.meeting.on_agenda is not none %}<div class="kv"><span>围绕三大问题</span><b>{% if record.meeting.on_agenda %}是{% else %}否{% endif %}</b></div>{% endif %}
+    </div>
+  </div>
+  {% if record.sentiment.signals %}
+  <ul style="margin-top:8px">{% for s in record.sentiment.signals %}<li>{{ s }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% if record.meeting.tangents %}
+  <div class="kv"><span>跑题内容</span><b>{{ record.meeting.tangents|join('；') }}</b></div>
+  {% endif %}
+  {% if record.sentiment.note %}<p class="empty">{{ record.sentiment.note }}</p>{% endif %}
+
   {% if record.jira %}
   <h2>关联 Jira 工单</h2>
   <table>
@@ -243,6 +311,16 @@
     </tr>
     {% endfor %}
   </table>
+  {% endif %}
+
+  {% if record.recurring_themes %}
+  <h2>反复出现的主题<span class="hint">跨期 · LLM 识别</span></h2>
+  <ul>{% for t in record.recurring_themes %}<li>{{ t }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  {% if record.coaching_notes %}
+  <h2>教练建议<span class="hint">给团队 / SM</span></h2>
+  <ul>{% for c in record.coaching_notes %}<li>{{ c }}</li>{% endfor %}</ul>
   {% endif %}
 
   <footer>
