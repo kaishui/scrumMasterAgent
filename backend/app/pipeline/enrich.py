@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import re
 
-from pydantic import BaseModel, Field
-
 from app.config import Pod
-from app.models import DsuRecord, Insight, JiraRef, PullRef
+from app.models import DsuRecord, JiraRef, PullRef
 
 KEY_RE = re.compile(r"\b([A-Z][A-Z0-9]{1,9}-\d+)\b")
 PR_RE = re.compile(r"(?:#|PR\s*|pr\s*)(\d{2,6})")
@@ -111,33 +109,29 @@ def _jira_base() -> str:
     return os.getenv("JIRA_URL", "").rstrip("/")
 
 
-# ---------- LLM 洞察 ----------
-
-
-class InsightsDraft(BaseModel):
-    insights: list[Insight] = Field(default_factory=list)
+# ---------- LLM 洞察（skill: insight_engine） ----------
 
 
 async def analyze(record: DsuRecord, pod: Pod, transcript: str) -> DsuRecord:
     """LLM 洞察：综合站会内容与 Jira/GitHub 富化结果，产出可行动洞察。失败则原样返回。"""
-    from app.llm import complete_json, ready
+    from app import skills
+    from app.llm import ready, run_structured
 
     if not ready():
         return record
 
     jira_brief = "; ".join(f"{j.key}:{j.status}" for j in record.jira) or "无"
     pulls_brief = "; ".join(f"{p.repo}#{p.number}:{p.state}" for p in record.pulls) or "无"
-    system = (
-        "你是 Scrum Master 的报告洞察引擎。基于站会内容与工具状态，提炼 3-6 条可行动洞察。"
-        "每条包含 kind(blocker/risk/win/trend/action)、text(一句话，具体可行动)、"
-        "severity(low/medium/high)、owner(负责人，不知道留空)。只输出真实存在的信号，不要编造。"
+    draft = await run_structured(
+        skills.insight_prompt,
+        skills.InsightsDraft,
+        pod=pod.name,
+        transcript=transcript[:4000],
+        jira_brief=jira_brief,
+        pulls_brief=pulls_brief,
+        blockers=record.blockers or "无",
+        risks=[r.text for r in record.risks] or "无",
     )
-    user = (
-        f"Pod: {pod.name}\n站会内容:\n{transcript[:4000]}\n"
-        f"Jira 状态: {jira_brief}\nPR: {pulls_brief}\n"
-        f"阻塞: {record.blockers or '无'}\n风险: {[r.text for r in record.risks] or '无'}"
-    )
-    draft = await complete_json(system, user, InsightsDraft)
     if draft:
         record.insights = [i for i in draft.insights if i.text.strip()]
     return record

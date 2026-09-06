@@ -5,7 +5,6 @@ from datetime import datetime
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from pydantic import BaseModel, Field
 
 from app.config import Pod
 from app.models import DsuRecord
@@ -44,33 +43,20 @@ def render_root(pods: list[dict]) -> str:
     )
 
 
-# ---------- LLM 摘要与教练建议（渲染前生成叙事内容）----------
-
-
-class CoachingDraft(BaseModel):
-    notes: list[str] = Field(default_factory=list)
-
-
-SUMMARY_SYSTEM = (
-    "你是 Scrum Master 的报告摘要生成器。用一段话(80-120 字)给干系人写执行摘要，"
-    "覆盖：今天最关键的进展、最需要关注的风险/阻塞、以及下一步行动。客观、克制，不要客套话。"
-)
-COACH_SYSTEM = (
-    "你是资深 Scrum Master 教练。基于这份站会数据，给出 2-4 条给团队/Scrum Master 的"
-    "改进建议，每条一句话、可执行，聚焦流程与协作问题(如阻塞升级、WIP 收敛、会议聚焦)。"
-)
+# ---------- LLM 摘要与教练建议（skill: report_summarizer，渲染前生成叙事内容）----------
 
 
 async def summarize(record: DsuRecord, pod: Pod) -> DsuRecord:
     """LLM 摘要 + 教练建议：面向干系人的执行摘要与面向 SM 的改进建议。失败则原样返回。"""
-    from app.llm import complete, complete_json, ready
+    from app import skills
+    from app.llm import ready, run, run_structured
 
     if not ready():
         return record
 
     brief = _brief(record, pod)
-    record.executive_summary = await complete(SUMMARY_SYSTEM, brief)
-    draft = await complete_json(COACH_SYSTEM, brief, CoachingDraft)
+    record.executive_summary = await run(skills.summary_prompt, brief=brief)
+    draft = await run_structured(skills.coach_prompt, skills.CoachingDraft, brief=brief)
     if draft:
         record.coaching_notes = [n for n in draft.notes if n.strip()]
     return record

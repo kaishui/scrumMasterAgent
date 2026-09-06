@@ -12,10 +12,8 @@ from datetime import date
 from difflib import SequenceMatcher
 from pathlib import Path
 
-from pydantic import BaseModel, Field
-
 from app.config import Pod, get_settings
-from app.models import ActionItem, DsuRecord, Forecast
+from app.models import ActionItem, DsuRecord
 
 
 def previous_record(pod: Pod, day: date) -> DsuRecord | None:
@@ -111,14 +109,10 @@ def _ratio(a: str, b: str) -> float:
     return SequenceMatcher(None, a, b).ratio()
 
 
-class TrendNarrativeDraft(BaseModel):
-    recurring_themes: list[str] = Field(default_factory=list)
-    forecast: Forecast = Field(default_factory=Forecast)
-
-
 async def narrate(record: DsuRecord, pod: Pod, previous: DsuRecord | None) -> DsuRecord:
-    """LLM 趋势解读：识别跨期反复出现的主题，并预测冲刺结果。失败则原样返回。"""
-    from app.llm import complete_json, ready
+    """LLM 趋势解读（skill: trend_narrator）：识别跨期反复主题 + 预测冲刺结果。失败则原样返回。"""
+    from app import skills
+    from app.llm import ready, run_structured
 
     if not ready():
         return record
@@ -129,23 +123,22 @@ async def narrate(record: DsuRecord, pod: Pod, previous: DsuRecord | None) -> Ds
             f"阻塞 {previous.open_blockers}、WIP {previous.wip}、"
             f"逾期行动项 {len(previous.overdue_actions)}、健康度 {previous.health_score}"
         )
-    system = (
-        "你是 Scrum Master 的趋势解读引擎。对比本期与上一期数据："
-        "1) recurring_themes: 跨期反复出现的主题或问题(如「部署失败连续出现」)，最多 3 条；"
-        "2) forecast: 预测冲刺能否按期完成 on_track、置信度 confidence(0-1)、"
-        "预计完成比例 projected_completion_pct、以及 reasoning(2-3 句理由)。"
-        "基于数据，不要臆造。"
+    draft = await run_structured(
+        skills.trend_prompt,
+        skills.TrendNarrativeDraft,
+        pod=pod.name,
+        blockers=record.open_blockers,
+        wip=record.wip,
+        overdue=len(record.overdue_actions),
+        health=record.health_score,
+        burndown=record.sprint_m.burndown,
+        progress=record.sprint_m.progress_pct,
+        blocker_delta=record.trend.blockers,
+        wip_delta=record.trend.wip,
+        resolved=record.trend.resolved_since_last,
+        prev_brief=prev_brief,
+        risks=[r.text for r in record.risks] or "无",
     )
-    user = (
-        f"Pod: {pod.name}\n本期: 阻塞 {record.open_blockers}、WIP {record.wip}、"
-        f"逾期行动项 {len(record.overdue_actions)}、健康度 {record.health_score}、"
-        f"燃尽 {record.sprint_m.burndown}、进度 {record.sprint_m.progress_pct}%\n"
-        f"阻塞变化 {record.trend.blockers}、WIP 变化 {record.trend.wip}、"
-        f"解决 {record.trend.resolved_since_last}\n"
-        f"上一期: {prev_brief}\n"
-        f"风险: {[r.text for r in record.risks] or '无'}"
-    )
-    draft = await complete_json(system, user, TrendNarrativeDraft)
     if draft:
         record.recurring_themes = [t for t in draft.recurring_themes if t.strip()]
         record.forecast = draft.forecast
