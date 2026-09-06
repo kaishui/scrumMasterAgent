@@ -10,6 +10,45 @@
 - **产物**：每天一份自包含静态 HTML，由 GitHub Pages 直接托管
 - **前端**：React + Vite 看板，读 `data/dsu-index.json`
 
+### 架构图
+
+```mermaid
+flowchart TB
+    subgraph Trig["触发 · run_pipeline()"]
+        CLI["CLI<br/>python -m app.cli"]
+        Sched["调度器<br/>APScheduler / GH Actions"]
+        API["FastAPI<br/>/api/dsu/*/generate"]
+    end
+
+    subgraph Src["会议源"]
+        Zoom["Zoom OAuth"] --- Local["本地文件"] --- Other["Teams / 飞书"]
+    end
+    LLM["LLM<br/>LangChain<br/>with_structured_output"]
+    MCP["Jira + GitHub MCP<br/>内部 DC / Cloud"]
+    Prev["上一期 raw JSON"]
+
+    subgraph Pipe["流水线 backend/app/pipeline"]
+        direction TB
+        Ingest["ingest"] --> Extract["extract"] --> Enrich["enrich"] --> Trends["trends"] --> Render["render"] --> Publish["publish"]
+    end
+
+    Trig --> Ingest
+    Src --> Ingest
+    LLM --> Extract
+    MCP --> Enrich
+    Prev --> Trends
+
+    Draft[".workdir 草稿"]
+    GH["GitHub 仓库 = 数据库"]
+    Pages["GitHub Pages"]
+    FE["React + Vite 看板"]
+
+    Render --> Draft
+    Publish --> GH --> Pages
+    GH --> FE
+    FE -.->|本地开发| API
+```
+
 ---
 
 ## 1. 快速开始
