@@ -13,8 +13,6 @@ import base64
 from datetime import date
 from pathlib import Path
 
-import httpx
-
 from app.config import Pod, get_settings, transcript_dir
 
 SUFFIXES = (".txt", ".md", ".vtt", ".srt")
@@ -67,6 +65,8 @@ def _from_local_file(pod: Pod, day: date) -> str:
 
 
 def _from_zoom(pod: Pod, day: date) -> str:
+    import httpx  # 延迟导入：不开 Zoom 时不需要装
+
     settings = get_settings()
     missing = [
         name
@@ -111,6 +111,8 @@ def _from_zoom(pod: Pod, day: date) -> str:
 
 
 def _zoom_token(settings) -> str:
+    import httpx
+
     basic = base64.b64encode(
         f"{settings.zoom_client_id}:{settings.zoom_client_secret}".encode()
     ).decode()
