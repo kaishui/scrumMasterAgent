@@ -38,9 +38,14 @@ jobs:
           GITHUB_REPO: ${{ vars.GITHUB_REPO }}
           GITHUB_BRANCH: main
           JIRA_URL: ${{ secrets.JIRA_URL }}
-          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
+          JIRA_PERSONAL_TOKEN: ${{ secrets.JIRA_PERSONAL_TOKEN }}
+          JIRA_SSL_VERIFY: "false"
+          ZOOM_ACCOUNT_ID: ${{ secrets.ZOOM_ACCOUNT_ID }}
+          ZOOM_CLIENT_ID: ${{ secrets.ZOOM_CLIENT_ID }}
+          ZOOM_CLIENT_SECRET: ${{ secrets.ZOOM_CLIENT_SECRET }}
           REQUIRE_HUMAN_APPROVAL: "false"
+          AUTO_COMMIT: "true"
         run: |
           cd backend
           python -m app.cli generate \
