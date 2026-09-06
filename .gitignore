@@ -4,6 +4,7 @@ __pycache__/
 *.pyc
 .venv/
 backend/scrum_master_agent.egg-info/
+build/
 node_modules/
 dist/
 .DS_Store
