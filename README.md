@@ -77,7 +77,7 @@ cd ../frontend && npm install && npm run dev
 | trends | 趋势解读 | 跨期反复主题 `recurring_themes` + 冲刺结果预测 `forecast` |
 | render | 摘要 / 教练建议 | 执行摘要 `executive_summary` + 给 SM 的 `coaching_notes` |
 
-降级链：`with_structured_output` → `JsonOutputParser` → 规则切分 / 空字段。统一封装在 `backend/app/llm.py`。
+降级链：`with_structured_output` → `JsonOutputParser` → 规则切分 / 空字段。五个 skill 的角色定义 + prompt + 输出 schema 集中在 `backend/app/skills.py`，运行封装在 `backend/app/llm.py`（详见 `docs/llm-skills-and-prompts.md`）。
 
 ---
 
@@ -331,7 +331,7 @@ Cloud 只需要把 `JIRA_API_TOKEN` 换成 Cloud 的 API token、删掉 `JIRA_SS
 ├── config/            pods.yaml, mcp.json
 ├── backend/           FastAPI + 流水线
 │   └── app/
-│       ├── config.py  models.py  llm.py  mcp_client.py  main.py  cli.py  scheduler.py
+│       ├── config.py  models.py  skills.py  llm.py  mcp_client.py  main.py  cli.py  scheduler.py
 │       ├── pipeline/  ingest → extract → enrich → trends → render → publish
 │       └── templates/ dsu.html.j2  index.html.j2
 ├── frontend/          React + Vite 看板
