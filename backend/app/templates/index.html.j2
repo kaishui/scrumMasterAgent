@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title>
+<style>
+  body {
+    margin: 0; padding: 32px 20px 64px;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+                 "Microsoft YaHei", "Segoe UI", Roboto, sans-serif;
+    background: #FAFAF8; color: #2C2C2A; line-height: 1.7; font-size: 14px;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; }
+  .meta { color: #5F5E5A; font-size: 13px; margin-bottom: 28px; }
+  h2 { font-size: 15px; font-weight: 600; margin: 28px 0 12px; }
+  .grid { display: flex; gap: 12px; flex-wrap: wrap; }
+  .pod {
+    flex: 1 1 240px; background: #fff; border: 1px solid #E5E3DC;
+    border-radius: 12px; padding: 16px 18px;
+  }
+  .pod h3 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+  .pod .sub { color: #5F5E5A; font-size: 12px; margin-bottom: 10px; }
+  ul { margin: 0; padding-left: 18px; }
+  a { color: #185FA5; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .empty { color: #888780; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>{{ title }}</h1>
+  <div class="meta">共 {{ pods|length }} 个 pod · 更新于 {{ generated_at }}</div>
+
+  <div class="grid">
+    {% for p in pods %}
+    <div class="pod">
+      <h3>{{ p.name }}</h3>
+      <div class="sub">{{ p.id }} · 最近 {{ p.entries|length }} 期</div>
+      <ul>
+        {% for e in p.entries %}
+        <li><a href="{{ e.url }}">{{ e.date }}</a></li>
+        {% else %}
+        <li class="empty">暂无记录</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+</body>
+</html>

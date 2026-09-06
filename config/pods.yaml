@@ -1,0 +1,49 @@
+defaults:
+  timezone: Asia/Shanghai
+  jira_project: PAY
+  github_branch: main
+  wip_limit: 3
+  # 生成的 DSU 默认草稿态，需人工确认后才发布；定时跑批时由 AUTO_COMMIT 覆盖
+  require_approval: true
+  # 允许自动回写 Jira(建单/流转)。默认为 false，风险太高
+  allow_jira_write: false
+
+pods:
+  - id: payments-pod
+    name: 支付组
+    folder: pods/payments-pod
+    jira_board: 101
+    jira_project: PAY
+    wip_limit: 3
+    github_repos:
+      - payments-api
+      - payments-web
+    members:
+      - alice
+      - bob
+      - carol
+    meeting:
+      # local_file | zoom | teams | feishu
+      source: zoom
+      path: data/transcripts/payments-pod
+      time: "09:30"
+      timezone: Asia/Shanghai
+      # Zoom 会议主题关键字，用来在当天录制里挑出这一场
+      zoom_topic: 支付组站会
+
+  - id: growth-pod
+    name: 增长组
+    folder: pods/growth-pod
+    jira_board: 102
+    jira_project: GRO
+    wip_limit: 2
+    github_repos:
+      - growth-service
+    members:
+      - dave
+      - erin
+    meeting:
+      source: local_file
+      path: data/transcripts/growth-pod
+      time: "09:45"
+      timezone: Asia/Shanghai

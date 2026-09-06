@@ -1,0 +1,28 @@
+[project]
+name = "scrum-master-agent"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "pydantic>=2.7",
+  "pydantic-settings>=2.3",
+  "jinja2>=3.1",
+  "pyyaml>=6.0",
+  "httpx>=0.27",
+  "mcp>=1.0",
+  "langchain>=0.3",
+  "langchain-core>=0.3",
+  "langchain-openai>=0.2",
+  "apscheduler>=3.10",
+]
+
+[project.scripts]
+scrum-agent = "app.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]

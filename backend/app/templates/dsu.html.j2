@@ -1,0 +1,252 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ record.pod }} · DSU {{ record.date }}</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 20px 64px;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+                 "Microsoft YaHei", "Segoe UI", Roboto, sans-serif;
+    background: #FAFAF8; color: #2C2C2A; line-height: 1.7; font-size: 14px;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  header { border-bottom: 1px solid #E5E3DC; padding-bottom: 20px; margin-bottom: 26px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 6px; }
+  .meta { color: #5F5E5A; font-size: 13px; }
+  h2 { font-size: 15px; font-weight: 600; margin: 30px 0 12px; }
+  h2 .hint { font-weight: 400; font-size: 12px; color: #888780; margin-left: 6px; }
+  .cards { display: flex; gap: 12px; flex-wrap: wrap; }
+  .card {
+    flex: 1 1 140px; background: #fff; border: 1px solid #E5E3DC;
+    border-radius: 12px; padding: 14px 16px;
+  }
+  .card .n { font-size: 24px; font-weight: 600; }
+  .card .l { font-size: 12px; color: #5F5E5A; }
+  .person {
+    background: #fff; border: 1px solid #E5E3DC; border-radius: 12px;
+    padding: 16px 18px; margin-bottom: 12px;
+  }
+  .person .name { font-weight: 600; margin-bottom: 8px; }
+  .row { display: flex; gap: 10px; margin-bottom: 6px; }
+  .tag { flex: none; width: 64px; font-size: 12px; color: #5F5E5A; padding-top: 2px; }
+  ul { margin: 0; padding-left: 18px; }
+  li { margin-bottom: 3px; }
+  .blocker {
+    background: #FCEBEB; border: 1px solid #F09595; color: #791F1F;
+    border-radius: 8px; padding: 8px 12px; margin-top: 8px;
+  }
+  .aging { font-size: 12px; color: #A32D2D; margin-top: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #EDEBE4; vertical-align: top; }
+  th { color: #5F5E5A; font-weight: 500; }
+  a { color: #185FA5; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .empty { color: #888780; font-size: 13px; }
+  .pill { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 99px;
+          background: #F1EFE8; color: #5F5E5A; }
+  .pill.high { background: #FCEBEB; color: #A32D2D; }
+  .pill.medium { background: #FAEEDA; color: #854F0B; }
+  .pill.low { background: #EAF3DE; color: #3B6D11; }
+  .up { color: #A32D2D; }
+  .down { color: #3B6D11; }
+  .grid2 { display: flex; gap: 12px; flex-wrap: wrap; }
+  .grid2 > div { flex: 1 1 260px; }
+  .kv { display: flex; justify-content: space-between; padding: 5px 0;
+        border-bottom: 1px solid #EDEBE4; font-size: 13px; }
+  .kv span { color: #5F5E5A; }
+  footer { margin-top: 40px; color: #888780; font-size: 12px; }
+</style>
+
+{% macro delta(v) -%}
+  {% if v > 0 %}<span class="up">+{{ v }}</span>
+  {% elif v < 0 %}<span class="down">{{ v }}</span>
+  {% else %}<span class="empty">0</span>{% endif %}
+{%- endmacro %}
+
+<div class="wrap">
+  <header>
+    <h1>{{ pod_name }} · 每日站会</h1>
+    <div class="meta">
+      {{ record.date }}
+      {% if record.sprint %} · {{ record.sprint }}{% endif %}
+      · 出席 {{ record.attendees|length }} 人
+      · 生成于 {{ generated_at }}
+    </div>
+  </header>
+
+  <div class="cards">
+    <div class="card"><div class="n">{{ record.health_score }}</div><div class="l">团队健康度</div></div>
+    <div class="card"><div class="n">{{ record.open_blockers }}</div><div class="l">阻塞项</div></div>
+    <div class="card"><div class="n">{{ record.wip }}</div><div class="l">进行中 WIP</div></div>
+    <div class="card"><div class="n">{{ record.overdue_actions|length }}</div><div class="l">逾期行动项</div></div>
+    <div class="card">
+      <div class="n"><span class="pill {{ record.risk_level }}">{{ record.risk_level }}</span></div>
+      <div class="l">整体风险</div>
+    </div>
+  </div>
+
+  <h2>趋势对比<span class="hint">相对上一期</span></h2>
+  <div class="grid2">
+    <div>
+      <div class="kv"><span>阻塞项变化</span><b>{{ delta(record.trend.blockers) }}</b></div>
+      <div class="kv"><span>WIP 变化</span><b>{{ delta(record.trend.wip) }}</b></div>
+    </div>
+    <div>
+      <div class="kv"><span>上期已解决阻塞</span><b>{{ record.trend.resolved_since_last }}</b></div>
+      <div class="kv"><span>逾期行动项变化</span><b>{{ delta(record.trend.overdue_actions) }}</b></div>
+    </div>
+  </div>
+
+  <h2>成员更新</h2>
+  {% for u in record.updates %}
+  <div class="person">
+    <div class="name">{{ u.person }}</div>
+    {% if u.yesterday %}<div class="row"><div class="tag">昨天</div><ul>{% for i in u.yesterday %}<li>{{ i }}</li>{% endfor %}</ul></div>{% endif %}
+    {% if u.today %}<div class="row"><div class="tag">今天</div><ul>{% for i in u.today %}<li>{{ i }}</li>{% endfor %}</ul></div>{% endif %}
+    {% for b in u.blockers %}
+    <div class="blocker">阻塞：{{ b }}</div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty">本次会议未识别到成员更新。</p>
+  {% endfor %}
+
+  <h2>阻塞与依赖<span class="hint">连续 3 天以上需要升级</span></h2>
+  {% if record.blockers %}
+    {% for b in record.blockers %}
+    <div class="blocker">{{ b }}</div>
+    <div class="aging">已持续 {{ record.blockers_m.aging_days.get(b, 1) }} 天</div>
+    {% endfor %}
+  {% else %}
+  <p class="empty">本期没有阻塞。</p>
+  {% endif %}
+  {% if record.blockers_m.cross_team %}
+  <div class="kv"><span>跨团队依赖</span><b>{{ record.blockers_m.cross_team|join('、') }}</b></div>
+  {% endif %}
+  {% if record.blockers_m.external %}
+  <div class="kv"><span>外部依赖</span><b>{{ record.blockers_m.external|join('、') }}</b></div>
+  {% endif %}
+
+  <h2>交付进展</h2>
+  <div class="grid2">
+    <div>
+      <div class="kv"><span>昨日完成</span><b>{{ record.delivery.done_yesterday }}</b></div>
+      <div class="kv"><span>今日计划</span><b>{{ record.delivery.planned_today }}</b></div>
+      <div class="kv"><span>进行中 WIP</span><b>{{ record.wip }}</b></div>
+    </div>
+    <div>
+      <div class="kv"><span>冲刺承诺</span><b>{{ record.delivery.sprint_commitment }}</b></div>
+      <div class="kv"><span>冲刺已完成</span><b>{{ record.delivery.sprint_completed }}</b></div>
+      <div class="kv"><span>冲刺剩余</span><b>{{ record.delivery.sprint_remaining }}</b></div>
+    </div>
+  </div>
+  {% if record.delivery.scope_changes %}
+  <p class="empty">范围变更：{{ record.delivery.scope_changes|join('；') }}</p>
+  {% endif %}
+
+  {% if record.action_items %}
+  <h2>行动项<span class="hint">带过来的表示上期未闭环</span></h2>
+  <table>
+    <tr><th>负责人</th><th>事项</th><th>截止</th><th>来源</th></tr>
+    {% for a in record.action_items %}
+    <tr>
+      <td>{{ a.owner or "-" }}</td>
+      <td>{{ a.text }}{% if a.overdue %} <span class="pill high">逾期</span>{% endif %}</td>
+      <td>{{ a.due or "-" }}</td>
+      <td>{% if a.carried_from %}<span class="pill medium">{{ a.carried_from }}</span>{% else %}本期{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  {% if record.decisions %}
+  <h2>决策</h2>
+  <ul>{% for d in record.decisions %}<li>{{ d }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  <h2>质量与风险</h2>
+  <div class="grid2">
+    <div>
+      <div class="kv"><span>新增缺陷</span><b>{{ record.quality.bugs_opened }}</b></div>
+      <div class="kv"><span>关闭缺陷</span><b>{{ record.quality.bugs_closed }}</b></div>
+      <div class="kv"><span>存量缺陷</span><b>{{ record.quality.bugs_open }}</b></div>
+    </div>
+    <div>
+      <div class="kv"><span>CI 失败次数</span><b>{{ record.quality.ci_failures }}</b></div>
+      <div class="kv"><span>部署次数</span><b>{{ record.quality.deploys }}</b></div>
+      <div class="kv"><span>线上事故</span><b>{{ record.quality.incidents|length }}</b></div>
+    </div>
+  </div>
+  {% if record.risks %}
+  <table style="margin-top:12px">
+    <tr><th>等级</th><th>描述</th><th>负责人</th></tr>
+    {% for r in record.risks %}
+    <tr>
+      <td><span class="pill {{ r.level }}">{{ r.level }}</span></td>
+      <td>{{ r.text }}</td>
+      <td>{{ r.owner or "-" }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  <h2>流动效率</h2>
+  <div class="grid2">
+    <div>
+      <div class="kv"><span>周期时间</span><b>{{ record.flow.cycle_time_days if record.flow.cycle_time_days is not none else "-" }}{% if record.flow.cycle_time_days is not none %} 天{% endif %}</b></div>
+      <div class="kv"><span>WIP 上限</span><b>{{ record.flow.wip_limit or "未设置" }}</b></div>
+    </div>
+    <div>
+      <div class="kv"><span>停滞工单</span><b>{{ record.flow.stale_tickets|length }}</b></div>
+      <div class="kv"><span>WIP 超限</span><b>{% if record.flow.wip_breached %}<span class="pill high">是</span>{% else %}否{% endif %}</b></div>
+    </div>
+  </div>
+  {% if record.flow.stale_tickets %}
+  <ul style="margin-top:8px">{% for s in record.flow.stale_tickets %}<li>{{ s }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  <h2>团队信号</h2>
+  <div class="grid2">
+    <div><div class="kv"><span>参与人数</span><b>{{ record.team.participants }}</b></div></div>
+    <div>
+      <div class="kv"><span>未发言</span><b>{{ record.team.silent|join('、') if record.team.silent else "无" }}</b></div>
+      <div class="kv"><span>负载过载</span><b>{{ record.team.overloaded|join('、') if record.team.overloaded else "无" }}</b></div>
+    </div>
+  </div>
+
+  {% if record.jira %}
+  <h2>关联 Jira 工单</h2>
+  <table>
+    <tr><th>Key</th><th>摘要</th><th>状态</th><th>负责人</th></tr>
+    {% for j in record.jira %}
+    <tr>
+      <td>{% if j.url %}<a href="{{ j.url }}">{{ j.key }}</a>{% else %}{{ j.key }}{% endif %}</td>
+      <td>{{ j.summary }}</td>
+      <td>{{ j.status or "-" }}</td>
+      <td>{{ j.assignee or "-" }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  {% if record.pulls %}
+  <h2>关联 PR</h2>
+  <table>
+    <tr><th>仓库</th><th>PR</th><th>标题</th><th>状态</th></tr>
+    {% for p in record.pulls %}
+    <tr>
+      <td>{{ p.repo }}</td>
+      <td>{% if p.url %}<a href="{{ p.url }}">#{{ p.number }}</a>{% else %}#{{ p.number }}{% endif %}</td>
+      <td>{{ p.title }}</td>
+      <td>{{ p.state or "-" }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  <footer>
+    由 Scrum Master Agent 自动生成 · 数据源 {{ record.source }} ·
+    {% if record.approved %}已确认{% else %}草稿，待确认{% endif %}
+  </footer>
+</div>

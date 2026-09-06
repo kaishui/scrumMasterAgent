@@ -1,0 +1,48 @@
+name: daily-dsu
+
+on:
+  schedule:
+    # 工作日 10:00 Asia/Shanghai = 02:00 UTC
+    - cron: "0 2 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      pod:
+        description: "pod id 或 all"
+        required: false
+        default: all
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        working-directory: backend
+        run: pip install -e .
+
+      - name: Run pipeline
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          GITHUB_TOKEN: ${{ secrets.DSU_REPO_TOKEN }}
+          GITHUB_OWNER: ${{ vars.GITHUB_OWNER }}
+          GITHUB_REPO: ${{ vars.GITHUB_REPO }}
+          GITHUB_BRANCH: main
+          JIRA_URL: ${{ secrets.JIRA_URL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          REQUIRE_HUMAN_APPROVAL: "false"
+        run: |
+          cd backend
+          python -m app.cli generate \
+            --pod "${{ github.event.inputs.pod || 'all' }}" \
+            --publish
